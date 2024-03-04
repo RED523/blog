@@ -1,0 +1,193 @@
+# 前言
+
+我认为，构造函数、原型、实例、原型链之间的关系贯穿了整个开发流程。无论是公司大型项目，还是个人项目，都一直在使用它们之间的特性。单独把每个点拎出来讲没有太大意义，把它们之间的关系联系起来，那才是核心。
+
+# 构造函数
+
+不管是通过声明的方式创建构造函数，还是通过函数表达式的方式创建构造函数，创建成功后，在构造函数上都会有一个 prototype 属性，作为原型的引用。
+
+```JavaScript
+function Person() {}
+console.log(Person.prototype); // 原型（本质就是一个js对象）
+```
+
+原型也叫原型对象， 在它身上有一个默认属性 constructor ，指回构造函数，可以说原型和构造函数之间是循环引用吧。（其实原型对象上面还有一个默认的隐性属性，即：[[prototype]] 或称为 __proto__属性，指向原型的原型。后面再详细介绍）
+
+```JavaScript
+function Person() {}
+console.log(Person.prototype.constructor === Person); // true
+```
+
+# 实例
+
+构造函数通过 new 关键字创建一个实例的时候，实例身上会被赋予一个内部的 [[prototype]] 属性，该属性会指向创建它的构造函数的原型。脚本中没有访问这个[[prototype]]特性的标准方式，但是 Firefox、Safari、 Chrome 中会在每个对象上暴露__proto__属性，通过这个属性可以找到实例的原型。此时可以得出：
+
+```JavaScript
+function Person() {}
+let person = new Person();
+
+console.log(person.__proto__ === Person.prototype); // true
+```
+
+在其他实现中，这个特性被完全屏蔽了。也可以通过 Object上的静态方法 getPrototypeOf() ，来访问实例上内部的 [[prototype]] 属性。
+
+```JavaScript
+function Person() {}
+let person = new Person();
+
+console.log(person.__proto__ === Object.getPrototypeOf(person)); // true
+```
+
+# 原型
+
+通过上面对构造函数和实例的讲解，可以发现两者都和原型有微妙的关系......
+
+现在我们大概知道原型就是一个对象，既然它是一个对象，也就意味着它身上会有一个内部的 [[prototype]] 属性，指向它的原型，它其实是 Object 的一个实例。
+
+```JavaScript
+function Person() {}
+
+console.log(Person.prototype.__proto__); // 返回 Object 的原型
+console.log(Person.prototype.__proto__.constructor === Object); // true
+```
+
+## 原型与构造函数的关系
+
+```JavaScript
+function Person() {}
+
+console.log(Person.prototype.constructor === Person); // true
+```
+
+## 原型与实例的关系
+
+```JavaScript
+function Person() {}
+
+let person = new Person();
+console.log(person.__proto__ === Person.prototype) // true
+```
+
+## 原型与构造函数关系
+
+那么会有人问？实例是构造函数new的一个对象，构造函数与实例有关系吗？回答这个问题，首先要了解下，new 的过程发生了什么？
+
+具体步骤：
+
+1.  在内存中创建了一个新对象；
+1.  将新对象的隐性属性 [[prototype]] 指向构造函数的 prototype 属性；
+1.  将构造函数中 this 包含的内容，作为实例的一个副本（即this 指向对象）；
+1.  执行构造函数中的内部代码（给新对象添加属性）
+
+🔨敲黑板！重点❗️ 答案就是：构造函数和实例之间是没有直接联系的，但是它们与原型对象有联系，可以将原型理解为一座桥梁，使实例和构造函数实现沟通
+
+## 原型涉及的几个常用方法
+
+-   hasOwnProperty。Object 原型对象上的方法。可以检测某个属性是否是对象的自有属性。
+
+```JavaScript
+function Person() {
+    this.name_ = '柯腾' // new之后，会成为person实例的一个实例属性副本（自有属性）
+}
+Person.prototype.age = 25; // Person原型上的属性
+
+let person = new Person();
+person.name = 'keteng'; // 动态添加的属性（自有属性）
+
+console.log(person.hasOwnProperty('name_')); // true
+console.log(person.hasOwnProperty('name')); // true
+console.log(person.hasOwnProperty('age')); // false
+```
+
+-   isPrototypeOf。Object 原型对象上的方法。在原型对象上使用，可以检测实例是否在某个原型链中。
+
+```JavaScript
+function Person() {
+    this.name_ = '柯腾'
+}
+function Animal() {}
+
+let person = new Person();
+let animal = new Animal();
+
+console.log(Person.prototype.isPrototypeOf(person)); // true
+console.log(Person.prototype.isPrototypeOf(animal)); // false (animal和Person.prototype没有关系)
+```
+
+-   getPrototypeOf。Object 的静态方法，和对象的 __proto__属性结果一致，都指向实例的原型对象。
+
+```JavaScript
+function Person() {}
+let person = new Person();
+
+console.log(person.__proto__ === Object.getPrototypeOf(person)); // true (都指向Person的 prototype 属性)
+```
+
+-   in 运算符。只要某个属性在原型链中可以访问到（不论是在来自实例还是原型），就返回 true。
+
+```JavaScript
+function Person() {
+    this.name_ = '柯腾'
+}
+Person.prototype.age = 25;
+
+let person = new Person();
+person.name = 'keteng';
+
+console.log('name_' in person); // true (来自实例)
+console.log('name' in person); // true (来自实例)
+console.log('age' in person); // true （来自原型）
+```
+
+-   instanceof运算符。用来检测构造函数的 prototype 属性是否在某个实例的原型链上（用来检测实例是否是构造函数创建的）
+
+```JavaScript
+function Person() {
+    this.name_ = '柯腾'
+}
+
+let person = new Person();
+
+console.log(person instanceof Person); // true (Person.prototype属性在person的原型链上)
+console.log(person instanceof Object); // true (Object.prototype属性在person的原型链上)
+```
+
+# 原型链
+
+其实上面的介绍已经涉及了原型链，它就是属性查找机制线路。
+
+查找某个属性，首先会先在实例上查找是否存在，如果找不到，就会去实例的原型上查找，还找不到，就去原型的原型查找，再找不到，就会返回 undefined。这个查找机制形成的这个结构，就是原型链。
+
+举个例子：
+
+```JavaScript
+function Person() {
+    this.name_ = '柯腾'
+}
+
+let person = new Person();
+person.age = 25;
+
+console.log(person.name_); // 柯腾
+console.log(person.age); // 25
+console.log(person.age_); // undefined
+```
+
+对于 name_，首先会先去 person 实例上查找是否存在 name_ 属性，发现确实存在（此时是定义在构造函数中，因为 new 的时候，会执行构造函数中的代码，将 this对象中的值「name_」作为新的实例的一个属性副本，让每个实例独自享有），然后输出；
+
+对于 age，首先会先去 person 实例上查找是否存在 age 属性，发现直接就存在了（在实例对象上动态赋值的），然后输出；
+
+对于 age_，首先会先去 person 实例上查找是否存在 age_ 属性，显然没有找到，然后通过__proto__去原型对象上查找，发现还是没有找到，然后再通过__proto__去原型的原型上查找，也没有找到，最终原型链会终止于Object.prototype__proto__指向null，输出 undefined。
+
+# 综上
+
+综上所述，对着这张图，应该就很好理解了。
+
+❗️这里强调一下，任何函数的默认原型都是一个 Object 的实例，这意味着这个实例的内部指针__proto__会指向 Object.prototype。其实，这也是为什么自定义类型能够使用包括 toString()、valueOf() 等在内的所有默认方法。
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/direct/f548b5d8a0d94110b70fc4058bc2160c.png)
+
+
+# 最后
+
+以上是我现阶段的一些理解，希望能够帮助到大家。如果觉得写的不错，可以点个赞。
